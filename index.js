@@ -1,11 +1,17 @@
 import http from "http";
+import { parse } from "querystring"; // To parse query strings for POST and PUT requests
 
 let movies = [
   { id: 1, title: "Tsotsi", director: "Gavin Hood", year: 2005 },
   { id: 2, title: "District 9", director: "Neill Blomkamp", year: 2009 },
   { id: 3, title: "Sarafina!", director: "Darrell Roodt", year: 1992 },
   { id: 4, title: "Yesterday", director: "Darrell Roodt", year: 2004 },
-  { id: 5, title: "Five Fingers for Marseilles", director: "Michael Matthews", year: 2017},
+  {
+    id: 5,
+    title: "Five Fingers for Marseilles",
+    director: "Michael Matthews",
+    year: 2017,
+  },
 ];
 
 let series = [
@@ -17,47 +23,159 @@ let series = [
 
 let songs = [
   { id: 6, title: "Levitating", artist: "Dua Lipa ft. DaBaby", year: 2020 },
-  { id: 7, title: "Save Your Tears", artist: "The Weeknd & Ariana Grande", year: 2021,},
-  { id: 2, title: "AKA", artist: "All Eyes On Me", year: 2016 },
-  { id: 3, title: "Shosholoza", artist: "Chaka Chaka", year: 1987 },
-  { id: 4, title: "Loliwe", artist: "Zahara", year: 2011 },
+  {
+    id: 7,
+    title: "Save Your Tears",
+    artist: "The Weeknd & Ariana Grande",
+    year: 2021,
+  },
+  { id: 8, title: "AKA", artist: "All Eyes On Me", year: 2016 },
+  { id: 9, title: "Shosholoza", artist: "Chaka Chaka", year: 1987 },
+  { id: 10, title: "Loliwe", artist: "Zahara", year: 2011 },
 ];
 
+// Function to send JSON data
 const sendData = (res, data) => {
   res.setHeader("Content-Type", "application/json");
-  res.end(JSON.stringify(data)); 
+  res.end(JSON.stringify(data));
 };
 
+// Function to handle POST requests
+const handlePostRequest = (req, res, dataArray) => {
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk;
+  });
+
+  req.on("end", () => {
+    const newData = JSON.parse(body);
+    newData.id = dataArray.length + 1; // Auto-generate an ID
+    dataArray.push(newData);
+    sendData(res, dataArray); // Send updated array
+  });
+};
+
+// Function to handle DELETE requests
+const handleDeleteRequest = (req, res, dataArray) => {
+  const url = req.url.split("/");
+  const id = parseInt(url[url.length - 1], 10); // Get the ID from URL
+
+  const index = dataArray.findIndex((item) => item.id === id);
+  if (index !== -1) {
+    dataArray.splice(index, 1); // Remove the item
+    sendData(res, dataArray); // Send updated array
+  } else {
+    res.statusCode = 404;
+    res.end("Item not found");
+  }
+};
+
+// Function to handle PUT requests
+const handlePutRequest = (req, res, dataArray) => {
+  const url = req.url.split("/");
+  const id = parseInt(url[url.length - 1], 10); // Get the ID from URL
+
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk;
+  });
+
+  req.on("end", () => {
+    const updatedData = JSON.parse(body);
+    const index = dataArray.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      // Update the item
+      dataArray[index] = { ...dataArray[index], ...updatedData };
+      sendData(res, dataArray); // Send updated array
+    } else {
+      res.statusCode = 404;
+      res.end("Item not found");
+    }
+  });
+};
+
+// Create the server
 const server = http.createServer((req, res) => {
   const url = req.url;
   const method = req.method;
-
 
   if (url === "/" && method === "GET") {
     res.statusCode = 200;
     res.setHeader("Content-Type", "text/plain");
     res.end("Welcome to the Node.js. Try /movies, /series, or /songs.");
+    return;
   }
 
   if (url === "/movies" && method === "GET") {
-    sendData(res, movies); 
+    sendData(res, movies);
+    return;
   }
-  
-  else if (url === "/series" && method === "GET") {
+
+  if (url === "/series" && method === "GET") {
     sendData(res, series);
+    return;
   }
-  
-  else if (url === "/songs" && method === "GET") {
-    sendData(res, songs); 
+
+  if (url === "/songs" && method === "GET") {
+    sendData(res, songs);
+    return;
   }
-  
-  else {
-    res.statusCode = 404; 
-    res.end("Not Found");
+
+  // Handle POST requests
+  if (
+    (url === "/movies" || url === "/series" || url === "/songs") &&
+    method === "POST"
+  ) {
+    if (url === "/movies") {
+      handlePostRequest(req, res, movies);
+    } else if (url === "/series") {
+      handlePostRequest(req, res, series);
+    } else if (url === "/songs") {
+      handlePostRequest(req, res, songs);
+    }
+    return;
   }
+
+  // Handle DELETE requests
+  if (
+    (url.startsWith("/movies/") ||
+      url.startsWith("/series/") ||
+      url.startsWith("/songs/")) &&
+    method === "DELETE"
+  ) {
+    if (url.startsWith("/movies/")) {
+      handleDeleteRequest(req, res, movies);
+    } else if (url.startsWith("/series/")) {
+      handleDeleteRequest(req, res, series);
+    } else if (url.startsWith("/songs/")) {
+      handleDeleteRequest(req, res, songs);
+    }
+    return;
+  }
+
+  // Handle PUT requests
+  if (
+    (url.startsWith("/movies/") ||
+      url.startsWith("/series/") ||
+      url.startsWith("/songs/")) &&
+    method === "PUT"
+  ) {
+    if (url.startsWith("/movies/")) {
+      handlePutRequest(req, res, movies);
+    } else if (url.startsWith("/series/")) {
+      handlePutRequest(req, res, series);
+    } else if (url.startsWith("/songs/")) {
+      handlePutRequest(req, res, songs);
+    }
+    return;
+  }
+
+  // 404 for all other routes
+  res.statusCode = 404;
+  res.end("Not Found");
 });
 
-
+// Start the server
 server.listen(3000, () => {
   console.log("Server running at http://localhost:3000");
 });
