@@ -1,5 +1,5 @@
 import http from "http";
-import { parse } from "querystring"; // To parse query strings for POST and PUT requests
+import { parse } from "querystring"; 
 
 let movies = [
   { id: 1, title: "Tsotsi", director: "Gavin Hood", year: 2005 },
@@ -34,13 +34,11 @@ let songs = [
   { id: 10, title: "Loliwe", artist: "Zahara", year: 2011 },
 ];
 
-// Function to send JSON data
 const sendData = (res, data) => {
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(data));
 };
 
-// Function to handle POST requests
 const handlePostRequest = (req, res, dataArray) => {
   let body = "";
   req.on("data", (chunk) => {
@@ -49,31 +47,29 @@ const handlePostRequest = (req, res, dataArray) => {
 
   req.on("end", () => {
     const newData = JSON.parse(body);
-    newData.id = dataArray.length + 1; // Auto-generate an ID
+    newData.id = dataArray.length + 1; 
     dataArray.push(newData);
-    sendData(res, dataArray); // Send updated array
+    sendData(res, dataArray); 
   });
 };
 
-// Function to handle DELETE requests
 const handleDeleteRequest = (req, res, dataArray) => {
   const url = req.url.split("/");
-  const id = parseInt(url[url.length - 1], 10); // Get the ID from URL
+  const id = parseInt(url[url.length - 1], 10); 
 
   const index = dataArray.findIndex((item) => item.id === id);
   if (index !== -1) {
-    dataArray.splice(index, 1); // Remove the item
-    sendData(res, dataArray); // Send updated array
+    dataArray.splice(index, 1);
+    sendData(res, dataArray); 
   } else {
     res.statusCode = 404;
     res.end("Item not found");
   }
 };
 
-// Function to handle PUT requests
 const handlePutRequest = (req, res, dataArray) => {
   const url = req.url.split("/");
-  const id = parseInt(url[url.length - 1], 10); // Get the ID from URL
+  const id = parseInt(url[url.length - 1], 10); 
 
   let body = "";
   req.on("data", (chunk) => {
@@ -84,9 +80,8 @@ const handlePutRequest = (req, res, dataArray) => {
     const updatedData = JSON.parse(body);
     const index = dataArray.findIndex((item) => item.id === id);
     if (index !== -1) {
-      // Update the item
       dataArray[index] = { ...dataArray[index], ...updatedData };
-      sendData(res, dataArray); // Send updated array
+      sendData(res, dataArray);
     } else {
       res.statusCode = 404;
       res.end("Item not found");
@@ -94,7 +89,6 @@ const handlePutRequest = (req, res, dataArray) => {
   });
 };
 
-// Create the server
 const server = http.createServer((req, res) => {
   const url = req.url;
   const method = req.method;
@@ -121,7 +115,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Handle POST requests
   if (
     (url === "/movies" || url === "/series" || url === "/songs") &&
     method === "POST"
@@ -136,7 +129,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Handle DELETE requests
   if (
     (url.startsWith("/movies/") ||
       url.startsWith("/series/") ||
@@ -153,7 +145,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Handle PUT requests
   if (
     (url.startsWith("/movies/") ||
       url.startsWith("/series/") ||
@@ -170,12 +161,10 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 404 for all other routes
   res.statusCode = 404;
   res.end("Not Found");
 });
 
-// Start the server
 server.listen(3000, () => {
   console.log("Server running at http://localhost:3000");
 });
