@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Documentation</title>
+</head>
+
+<body>
+  <h1>Welcome to the API</h1>
+  <p>This is the API documentation for interacting with the movie, series, and songs data.</p>
+
+  <h2>API Endpoints</h2>
+  <ul>
+    <li><strong>GET /movies</strong> - Retrieve all movies</li>
+    <li><strong>GET /series</strong> - Retrieve all series</li>
+    <li><strong>GET /songs</strong> - Retrieve all songs</li>
+    <li><strong>POST /movies</strong> - Add a movie</li>
+    <li><strong>POST /series</strong> - Add a series</li>
+    <li><strong>POST /songs</strong> - Add a song</li>
+    <li><strong>PUT /movies/:id</strong> - Update a movie</li>
+    <li><strong>PUT /series/:id</strong> - Update a series</li>
+    <li><strong>PUT /songs/:id</strong> - Update a song</li>
+    <li><strong>DELETE /movies/:id</strong> - Delete a movie</li>
+    <li><strong>DELETE /series/:id</strong> - Delete a series</li>
+    <li><strong>DELETE /songs/:id</strong> - Delete a song</li>
+  </ul>
+
+  <hr>
+
+  <h2>Movies</h2>
+  <button onclick="fetchItems('movies')">Get Movies</button>
+  <pre id="movies"></pre>
+
+  <form onsubmit="addItem(event, 'movies', 'movieTitle')">
+    <input type="text" id="movieTitle" placeholder="Movie Title" required />
+    <button type="submit">Add Movie</button>
+  </form>
+
+  <form onsubmit="deleteItem(event, 'movies', 'deleteMovieId')">
+    <input type="number" id="deleteMovieId" placeholder="Movie ID" required />
+    <button type="submit">Delete Movie</button>
+  </form>
+
+  <form onsubmit="updateItem(event, 'movies', 'updateMovieId', 'updateMovieTitle')">
+    <input type="number" id="updateMovieId" placeholder="Movie ID" required />
+    <input type="text" id="updateMovieTitle" placeholder="New Title" required />
+    <button type="submit">Update Movie</button>
+  </form>
+
+  <hr>
+
+  <h2>Series</h2>
+  <button onclick="fetchItems('series')">Get Series</button>
+  <pre id="series"></pre>
+
+  <form onsubmit="addItem(event, 'series', 'seriesTitle')">
+    <input type="text" id="seriesTitle" placeholder="Series Title" required />
+    <button type="submit">Add Series</button>
+  </form>
+
+  <form onsubmit="deleteItem(event, 'series', 'deleteSeriesId')">
+    <input type="number" id="deleteSeriesId" placeholder="Series ID" required />
+    <button type="submit">Delete Series</button>
+  </form>
+
+  <form onsubmit="updateItem(event, 'series', 'updateSeriesId', 'updateSeriesTitle')">
+    <input type="number" id="updateSeriesId" placeholder="Series ID" required />
+    <input type="text" id="updateSeriesTitle" placeholder="New Title" required />
+    <button type="submit">Update Series</button>
+  </form>
+
+  <hr>
+
+  <h2>Songs</h2>
+  <button onclick="fetchItems('songs')">Get Songs</button>
+  <pre id="songs"></pre>
+
+  <form onsubmit="addItem(event, 'songs', 'songTitle')">
+    <input type="text" id="songTitle" placeholder="Song Title" required />
+    <button type="submit">Add Song</button>
+  </form>
+
+  <form onsubmit="deleteItem(event, 'songs', 'deleteSongId')">
+    <input type="number" id="deleteSongId" placeholder="Song ID" required />
+    <button type="submit">Delete Song</button>
+  </form>
+
+  <form onsubmit="updateItem(event, 'songs', 'updateSongId', 'updateSongTitle')">
+    <input type="number" id="updateSongId" placeholder="Song ID" required />
+    <input type="text" id="updateSongTitle" placeholder="New Title" required />
+    <button type="submit">Update Song</button>
+  </form>
+
+  <script>
+    function fetchItems(type) {
+      fetch(`http://localhost:3000/${type}`)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById(type).textContent = JSON.stringify(data, null, 2);
+        });
+    }
+
+    function addItem(event, type, titleId) {
+      event.preventDefault();
+      const title = document.getElementById(titleId).value;
+      fetch(`http://localhost:3000/${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      }).then(() => {
+        fetchItems(type);
+        alert(`${type.slice(0, -1)} added!`);
+      });
+    }
+
+    function deleteItem(event, type, idField) {
+      event.preventDefault();
+      const id = document.getElementById(idField).value;
+      fetch(`http://localhost:3000/${type}/${id}`, {
+        method: "DELETE"
+      }).then(() => {
+        fetchItems(type);
+        alert(`${type.slice(0, -1)} deleted!`);
+      });
+    }
+
+    function updateItem(event, type, idField, titleField) {
+      event.preventDefault();
+      const id = document.getElementById(idField).value;
+      const title = document.getElementById(titleField).value;
+      fetch(`http://localhost:3000/${type}/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      }).then(() => {
+        fetchItems(type);
+        alert(`${type.slice(0, -1)} updated!`);
+      });
+    }
+  </script>
+</body>
+
+</html>

@@ -1,75 +1,78 @@
 import http from "http";
-import { parse } from "querystring"; 
+import { parse } from "querystring";
+import fs from "fs";
+import path from "path";
+import { initializeDataFile, readData, writeData } from "./dataHandler.js";
+import { fileURLToPath } from "url"; // Import for converting URL to path
+import { dirname } from "path"; // Import for getting the directory name
 
-let movies = [
-  { id: 1, title: "Tsotsi", director: "Gavin Hood", year: 2005 },
-  { id: 2, title: "District 9", director: "Neill Blomkamp", year: 2009 },
-  { id: 3, title: "Sarafina!", director: "Darrell Roodt", year: 1992 },
-  { id: 4, title: "Yesterday", director: "Darrell Roodt", year: 2004 },
-  {
-    id: 5,
-    title: "Five Fingers for Marseilles",
-    director: "Michael Matthews",
-    year: 2017,
-  },
-];
+// Get the current directory of the module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-let series = [
-  { id: 1, title: "Breaking Bad", creator: "Gilligan", year: 2008 },
-  { id: 2, title: "Stranger Things", creator: "Duffer", year: 2016 },
-  { id: 3, title: "Blood & Water", creator: "Tracy A. Armstrong", year: 2020 },
-  { id: 4, title: "The River", creator: "Bongi Ndaba", year: 2018 },
-];
+// Initialize data file if it doesn't exist
+initializeDataFile();
 
-let songs = [
-  { id: 6, title: "Levitating", artist: "Dua Lipa ft. DaBaby", year: 2020 },
-  {
-    id: 7,
-    title: "Save Your Tears",
-    artist: "The Weeknd & Ariana Grande",
-    year: 2021,
-  },
-  { id: 8, title: "AKA", artist: "All Eyes On Me", year: 2016 },
-  { id: 9, title: "Shosholoza", artist: "Chaka Chaka", year: 1987 },
-  { id: 10, title: "Loliwe", artist: "Zahara", year: 2011 },
-];
-
-const sendData = (res, data) => {
+// Function to send JSON data
+const sendData = (res, data, statusCode = 200) => {
   res.setHeader("Content-Type", "application/json");
+  res.statusCode = statusCode;
   res.end(JSON.stringify(data));
 };
 
-const handlePostRequest = (req, res, dataArray) => {
+// Function to handle errors
+const handleError = (res, message, statusCode = 500) => {
+  res.statusCode = statusCode;
+  res.end(JSON.stringify({ error: message }));
+};
+
+// Function to handle POST requests
+const handlePostRequest = (req, res, category) => {
   let body = "";
   req.on("data", (chunk) => {
     body += chunk;
   });
 
   req.on("end", () => {
-    const newData = JSON.parse(body);
-    newData.id = dataArray.length + 1; 
-    dataArray.push(newData);
-    sendData(res, dataArray); 
+    try {
+      const newData = JSON.parse(body);
+      newData.id = category.length + 1;
+      category.push(newData);
+      try {
+        writeData(readData()); // Save the updated data to the file
+      } catch (writeErr) {
+        return handleError(res, "Failed to write data", 500);
+      }
+      sendData(res, category);
+    } catch (err) {
+      handleError(res, "Invalid JSON format in request body", 400);
+    }
   });
 };
 
-const handleDeleteRequest = (req, res, dataArray) => {
+// Function to handle DELETE requests
+const handleDeleteRequest = (req, res, category) => {
   const url = req.url.split("/");
-  const id = parseInt(url[url.length - 1], 10); 
+  const id = parseInt(url[url.length - 1], 10);
 
-  const index = dataArray.findIndex((item) => item.id === id);
+  const index = category.findIndex((item) => item.id === id);
   if (index !== -1) {
-    dataArray.splice(index, 1);
-    sendData(res, dataArray); 
+    category.splice(index, 1);
+    try {
+      writeData(readData()); // Save the updated data to the file
+    } catch (writeErr) {
+      return handleError(res, "Failed to write data", 500);
+    }
+    sendData(res, category);
   } else {
-    res.statusCode = 404;
-    res.end("Item not found");
+    handleError(res, "Item not found", 404);
   }
 };
 
-const handlePutRequest = (req, res, dataArray) => {
+// Function to handle PUT requests
+const handlePutRequest = (req, res, category) => {
   const url = req.url.split("/");
-  const id = parseInt(url[url.length - 1], 10); 
+  const id = parseInt(url[url.length - 1], 10);
 
   let body = "";
   req.on("data", (chunk) => {
@@ -77,14 +80,22 @@ const handlePutRequest = (req, res, dataArray) => {
   });
 
   req.on("end", () => {
-    const updatedData = JSON.parse(body);
-    const index = dataArray.findIndex((item) => item.id === id);
-    if (index !== -1) {
-      dataArray[index] = { ...dataArray[index], ...updatedData };
-      sendData(res, dataArray);
-    } else {
-      res.statusCode = 404;
-      res.end("Item not found");
+    try {
+      const updatedData = JSON.parse(body);
+      const index = category.findIndex((item) => item.id === id);
+      if (index !== -1) {
+        category[index] = { ...category[index], ...updatedData };
+        try {
+          writeData(readData()); // Save the updated data to the file
+        } catch (writeErr) {
+          return handleError(res, "Failed to write data", 500);
+        }
+        sendData(res, category);
+      } else {
+        handleError(res, "Item not found", 404);
+      }
+    } catch (err) {
+      handleError(res, "Invalid JSON format in request body", 400);
     }
   });
 };
@@ -93,78 +104,114 @@ const server = http.createServer((req, res) => {
   const url = req.url;
   const method = req.method;
 
+  // Serve the API documentation (index.html)
   if (url === "/" && method === "GET") {
-    res.statusCode = 200;
-    res.setHeader("Content-Type", "text/plain");
-    res.end("Welcome to the Node.js. Try /movies, /series, or /songs.");
+    const filePath = path.join(__dirname, "public", "index.html");
+    fs.readFile(filePath, (err, content) => {
+      if (err) {
+        return handleError(res, "Error loading index.html", 500);
+      } else {
+        res.setHeader("Content-Type", "text/html");
+        res.end(content);
+      }
+    });
     return;
   }
 
+  // Handle GET requests for /movies, /series, and /songs
+  let data;
+  try {
+    data = readData(); // Read the current data from the file
+  } catch (err) {
+    return handleError(res, "Failed to read data", 500);
+  }
+
   if (url === "/movies" && method === "GET") {
-    sendData(res, movies);
+    sendData(res, data.movies);
     return;
   }
 
   if (url === "/series" && method === "GET") {
-    sendData(res, series);
+    sendData(res, data.series);
     return;
   }
 
   if (url === "/songs" && method === "GET") {
-    sendData(res, songs);
+    sendData(res, data.songs);
     return;
   }
 
+  // Handle POST requests for /movies, /series, and /songs
   if (
     (url === "/movies" || url === "/series" || url === "/songs") &&
     method === "POST"
   ) {
-    if (url === "/movies") {
-      handlePostRequest(req, res, movies);
-    } else if (url === "/series") {
-      handlePostRequest(req, res, series);
-    } else if (url === "/songs") {
-      handlePostRequest(req, res, songs);
-    }
+    const category =
+      url === "/movies"
+        ? data.movies
+        : url === "/series"
+        ? data.series
+        : data.songs;
+    handlePostRequest(req, res, category);
     return;
   }
 
+  // Handle DELETE requests for /movies/:id, /series/:id, and /songs/:id
   if (
     (url.startsWith("/movies/") ||
       url.startsWith("/series/") ||
       url.startsWith("/songs/")) &&
     method === "DELETE"
   ) {
-    if (url.startsWith("/movies/")) {
-      handleDeleteRequest(req, res, movies);
-    } else if (url.startsWith("/series/")) {
-      handleDeleteRequest(req, res, series);
-    } else if (url.startsWith("/songs/")) {
-      handleDeleteRequest(req, res, songs);
-    }
+    const category = url.startsWith("/movies/")
+      ? data.movies
+      : url.startsWith("/series/")
+      ? data.series
+      : data.songs;
+    handleDeleteRequest(req, res, category);
     return;
   }
 
+  // Handle PUT requests for /movies/:id, /series/:id, and /songs/:id
   if (
     (url.startsWith("/movies/") ||
       url.startsWith("/series/") ||
       url.startsWith("/songs/")) &&
     method === "PUT"
   ) {
-    if (url.startsWith("/movies/")) {
-      handlePutRequest(req, res, movies);
-    } else if (url.startsWith("/series/")) {
-      handlePutRequest(req, res, series);
-    } else if (url.startsWith("/songs/")) {
-      handlePutRequest(req, res, songs);
-    }
+    const category = url.startsWith("/movies/")
+      ? data.movies
+      : url.startsWith("/series/")
+      ? data.series
+      : data.songs;
+    handlePutRequest(req, res, category);
     return;
   }
 
-  res.statusCode = 404;
-  res.end("Not Found");
+  // Handle 404 for unknown paths
+  handleError(res, "Not Found", 404);
 });
 
+let data;
+try {
+  data = readData(); // Read the current data
+} catch (err) {
+  console.error("Error reading data:", err);
+  process.exit(1); // Exit if reading data fails
+}
+
+// Add a test movie if the movies array is empty
+if (data.movies.length === 0) {
+  data.movies.push({ id: 1, title: "Test Movie" });
+  try {
+    writeData(data); // Save it back to the file
+  } catch (err) {
+    console.error("Error writing data:", err);
+    process.exit(1); // Exit if writing data fails
+  }
+}
+
+// Start the server
 server.listen(3000, () => {
   console.log("Server running at http://localhost:3000");
 });
